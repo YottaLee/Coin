@@ -87,6 +87,77 @@ func GenesisBlock(config *Config) *block.Block {
 // (5) Updates the BlockChain's fields.
 func (bc *BlockChain) HandleBlock(b *block.Block) {
 	//TODO
+
+	// test if appended to main block chain
+	//      validate and store block
+	appendOnMainChain := bc.appendsToActiveChain(b)
+	if appendOnMainChain {
+		var txs []*block.Transaction
+		for _, tx := range b.Transactions {
+			var txInputs []*block.TransactionInput
+			var txOutputs []*block.TransactionOutput
+
+			for _, txInput := range tx.Inputs {
+				input := &block.TransactionInput{
+					ReferenceTransactionHash: txInput.ReferenceTransactionHash,
+					OutputIndex:              txInput.OutputIndex,
+					UnlockingScript:          txInput.UnlockingScript,
+				}
+				txInputs = append(txInputs, input)
+			}
+
+			for _, txOutput := range tx.Outputs {
+				output := &block.TransactionOutput{
+					Amount:        txOutput.Amount,
+					LockingScript: txOutput.LockingScript,
+				}
+				txOutputs = append(txOutputs, output)
+			}
+
+			trans := &block.Transaction{
+				Version:  tx.Version,
+				Inputs:   txInputs,
+				Outputs:  txOutputs,
+				LockTime: tx.LockTime,
+			}
+			txs = append(txs, trans)
+		}
+		bc.CoinDB.ValidateAndStoreBlock(txs)
+	}
+
+	// validate block
+	// 		create block and undo block
+	// 		store block and undo block
+	//		update chain
+	// 			if fork, fork has surpassed active chain
+	//			Reverse UTXO with undo_blocks
+	// 			Add forked blocks to coin database
+	if bc.CoinDB.ValidateBlock(b.Transactions) {
+		var blockHeight uint32
+		if appendOnMainChain {
+			blockHeight = bc.Length + 1
+		} else {
+			prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
+			blockHeight = prevBlock.Height + 1
+		}
+
+		undoBlock := bc.makeUndoBlock(b.Transactions)
+		blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
+		bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
+
+		if appendOnMainChain {
+			bc.Length = bc.Length + 1
+			bc.LastBlock = b
+		} else if blockHeight > bc.Length {
+			forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
+			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
+			bc.CoinDB.UndoCoins(blocks, undoBlocks)
+
+			for _, forkBlock := range forkBlocks {
+				bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
+			}
+		}
+	}
 }
 
 // makeUndoBlock returns an UndoBlock given a slice of Transaction.

@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log"
 	"os"
+	"strconv"
 )
 
 // ChainWriter handles all I/O for the BlockChain. It stores and retrieves
@@ -96,14 +97,54 @@ func (cw *ChainWriter) StoreBlock(bl *block.Block, undoBlock *UndoBlock, height 
 // a FileInfo for storage information.
 func (cw *ChainWriter) WriteBlock(serializedBlock []byte) *FileInfo {
 	//TODO
-	return nil
+
+	// check if the block will fit in the current file, move to next file if not
+	if cw.CurrentBlockOffset+uint32(len(serializedBlock)+1) >= cw.MaxBlockFileSize {
+		cw.CurrentBlockFileNumber = cw.CurrentBlockFileNumber + 1
+		cw.CurrentBlockOffset = 0
+	}
+
+	currentFilePath := cw.DataDirectory + "/" + cw.BlockFileName + "_" + strconv.Itoa(int(cw.CurrentBlockFileNumber)) + cw.FileExtension
+
+	// write the block to the file
+	writeToDisk(currentFilePath, serializedBlock)
+
+	// update current offsets accordingly
+	cw.CurrentBlockOffset = cw.CurrentBlockOffset + uint32(len(serializedBlock))
+
+	fi := &FileInfo{
+		FileName:    currentFilePath,
+		StartOffset: cw.CurrentBlockOffset - uint32(len(serializedBlock)),
+		EndOffset:   cw.CurrentBlockOffset,
+	}
+	return fi
 }
 
 // WriteUndoBlock writes a serialized UndoBlock to Disk and returns
 // a FileInfo for storage information.
 func (cw *ChainWriter) WriteUndoBlock(serializedUndoBlock []byte) *FileInfo {
 	//TODO
-	return nil
+
+	// check if the block will fit in the current file, move to next file if not
+	if cw.CurrentUndoOffset+uint32(len(serializedUndoBlock)+1) >= cw.MaxUndoFileSize {
+		cw.CurrentUndoFileNumber = cw.CurrentUndoFileNumber + 1
+		cw.CurrentUndoOffset = 0
+	}
+
+	currentFilePath := cw.DataDirectory + "/" + cw.UndoFileName + "_" + strconv.Itoa(int(cw.CurrentUndoFileNumber)) + cw.FileExtension
+
+	// write the block to the file
+	writeToDisk(currentFilePath, serializedUndoBlock)
+
+	// update current offsets accordingly
+	cw.CurrentUndoOffset = cw.CurrentUndoOffset + uint32(len(serializedUndoBlock))
+
+	fi := &FileInfo{
+		FileName:    currentFilePath,
+		StartOffset: cw.CurrentUndoOffset - uint32(len(serializedUndoBlock)),
+		EndOffset:   cw.CurrentUndoOffset,
+	}
+	return fi
 }
 
 // ReadBlock returns a Block given a FileInfo.
