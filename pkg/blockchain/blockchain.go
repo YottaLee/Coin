@@ -148,6 +148,7 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 		if appendOnMainChain {
 			bc.Length = bc.Length + 1
 			bc.LastBlock = b
+			bc.LastHash = b.Hash()
 		} else if blockHeight > bc.Length {
 			forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
 			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
