@@ -92,46 +92,10 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 	//      validate and store block
 	appendOnMainChain := bc.appendsToActiveChain(b)
 	if appendOnMainChain {
-		var txs []*block.Transaction
-		for _, tx := range b.Transactions {
-			var txInputs []*block.TransactionInput
-			var txOutputs []*block.TransactionOutput
-
-			for _, txInput := range tx.Inputs {
-				input := &block.TransactionInput{
-					ReferenceTransactionHash: txInput.ReferenceTransactionHash,
-					OutputIndex:              txInput.OutputIndex,
-					UnlockingScript:          txInput.UnlockingScript,
-				}
-				txInputs = append(txInputs, input)
-			}
-
-			for _, txOutput := range tx.Outputs {
-				output := &block.TransactionOutput{
-					Amount:        txOutput.Amount,
-					LockingScript: txOutput.LockingScript,
-				}
-				txOutputs = append(txOutputs, output)
-			}
-
-			trans := &block.Transaction{
-				Version:  tx.Version,
-				Inputs:   txInputs,
-				Outputs:  txOutputs,
-				LockTime: tx.LockTime,
-			}
-			txs = append(txs, trans)
-		}
+		txs := b.Transactions
 		bc.CoinDB.ValidateAndStoreBlock(txs)
 	}
 
-	// validate block
-	// 		create block and undo block
-	// 		store block and undo block
-	//		update chain
-	// 			if fork, fork has surpassed active chain
-	//			Reverse UTXO with undo_blocks
-	// 			Add forked blocks to coin database
 	if bc.CoinDB.ValidateBlock(b.Transactions) {
 		var blockHeight uint32
 		if appendOnMainChain {
