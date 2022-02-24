@@ -76,20 +76,37 @@ func (coinDB *CoinDatabase) validateTransaction(transaction *block.Transaction) 
 	return nil
 }
 
-// ValidateAndStoreBlock combines the coin database's ValidateBlock and StoreBlock calls.
-func (coinDB *CoinDatabase) ValidateAndStoreBlock(transactions []*block.Transaction) bool {
-	if !coinDB.ValidateBlock(transactions) {
-		return false
-	}
-	coinDB.StoreBlock(transactions, true)
-	return true
-}
-
 // UndoCoins handles reverting a Block. It:
 // (1) erases the Coins created by a Block and
 // (2) marks the Coins used to create those Transactions as unspent.
 func (coinDB *CoinDatabase) UndoCoins(blocks []*block.Block, undoBlocks []*chainwriter.UndoBlock) {
 	//TODO
+
+	for i := range blocks {
+		b := blocks[i]
+		ub := undoBlocks[i]
+		for _, tx := range b.Transactions {
+			for _, txi := range tx.Inputs {
+				cr := coinDB.getCoinRecordFromDB(txi.ReferenceTransactionHash)
+				coinDB.removeCoinFromRecord(cr, txi.OutputIndex)
+			}
+		}
+
+		for _, txih := range ub.TransactionInputHashes {
+			for _, txi := range txih {
+				cr := coinDB.getCoinRecordFromDB(string(txi))
+				coinDB.addCoinsToRecord(cr, ub)
+				//coinDB.putRecordInDB(string(txi), cr)
+				record := EncodeCoinRecord(cr)
+				//txHash := txi.ReferenceTransactionHash
+				txHash := string(txi)
+				msg, _ := proto.Marshal(record)
+				if err2 := coinDB.db.Put([]byte(txHash), msg, nil); err2 != nil {
+					utils.Debug.Printf("Unable to store block record for key {%v}", txHash)
+				}
+			}
+		}
+	}
 }
 
 // addCoinsToRecord adds coins to a CoinRecord given an UndoBlock and
@@ -153,6 +170,71 @@ func (coinDB *CoinDatabase) FlushMainCache() {
 // (3) stores CoinRecords for the Transactions in the db.
 func (coinDB *CoinDatabase) StoreBlock(transactions []*block.Transaction, active bool) {
 	//TODO
+
+	// (1) removes spent TransactionOutputs (if active)
+	if active {
+		for _, transaction := range transactions {
+			for _, txi := range transaction.Inputs {
+				cl := makeCoinLocator(txi)
+				// coin in mainCache: mark as spent
+				// (no need to remove from db, since flush automatically does so
+				if coin, ok := coinDB.mainCache[cl]; ok {
+					coin.IsSpent = true
+				}
+
+				// either coin in or not in mainCache: remove from db
+				// retrieve from db
+				data, err := coinDB.db.Get([]byte(cl.ReferenceTransactionHash), nil)
+				if err != nil {
+					utils.Debug.Printf("[FlushMainCache] coin record not in leveldb")
+				}
+				pcr := &pro.CoinRecord{}
+				if err = proto.Unmarshal(data, pcr); err != nil {
+					utils.Debug.Printf("Failed to unmarshal record from hash {%v}:%v", cl.ReferenceTransactionHash, err)
+				}
+				cr := DecodeCoinRecord(pcr)
+
+				coinDB.removeCoinFromRecord(cr, cl.OutputIndex)
+			}
+		}
+	}
+
+	// (2) stores new TransactionOutputs as Coins in the mainCache (if active)
+	if active {
+		for _, transaction := range transactions {
+			for _, txo := range transaction.Outputs {
+				// check if cache is full, if so, flush to DB
+				if coinDB.mainCacheSize >= coinDB.mainCacheCapacity {
+					coinDB.FlushMainCache()
+				}
+
+				txi := &block.TransactionInput{
+					ReferenceTransactionHash: transaction.Hash(),
+					OutputIndex:              txo.Amount,
+					UnlockingScript:          txo.LockingScript,
+				}
+				coin := &Coin{
+					TransactionOutput: txo,
+					IsSpent:           false,
+				}
+				cl := makeCoinLocator(txi)
+				coinDB.mainCache[cl] = coin
+			}
+		}
+	}
+
+	// (3) stores CoinRecords for the Transactions in the db.
+	for _, transaction := range transactions {
+		cr := coinDB.createCoinRecord(transaction)
+		//coinDB.putRecordInDB(txi.ReferenceTransactionHash, cr)
+		record := EncodeCoinRecord(cr)
+		//txHash := txi.ReferenceTransactionHash
+		txHash := transaction.Hash()
+		msg, _ := proto.Marshal(record)
+		if err2 := coinDB.db.Put([]byte(txHash), msg, nil); err2 != nil {
+			utils.Debug.Printf("Unable to store block record for key {%v}", txHash)
+		}
+	}
 }
 
 // removeCoinFromDB removes a Coin from a CoinRecord, deleting the CoinRecord
