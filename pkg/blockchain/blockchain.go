@@ -120,6 +120,9 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 		for _, forkBlock := range forkBlocks {
 			bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
 		}
+		bc.Length = blockHeight
+		bc.LastBlock = b
+		bc.LastHash = b.Hash()
 	}
 }
 
