@@ -91,36 +91,34 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 	// test if appended to main block chain
 	//      validate and store block
 	appendOnMainChain := bc.appendsToActiveChain(b)
-	if appendOnMainChain {
-		txs := b.Transactions
-		bc.CoinDB.ValidateAndStoreBlock(txs)
+	txs := b.Transactions
+	if !bc.CoinDB.ValidateAndStoreBlock(txs) {
+		return
 	}
 
-	if bc.CoinDB.ValidateBlock(b.Transactions) {
-		var blockHeight uint32
-		if appendOnMainChain {
-			blockHeight = bc.Length + 1
-		} else {
-			prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
-			blockHeight = prevBlock.Height + 1
-		}
+	var blockHeight uint32
+	if appendOnMainChain {
+		blockHeight = bc.Length + 1
+	} else {
+		prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
+		blockHeight = prevBlock.Height + 1
+	}
 
-		undoBlock := bc.makeUndoBlock(b.Transactions)
-		blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
-		bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
+	undoBlock := bc.makeUndoBlock(b.Transactions)
+	blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
+	bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
 
-		if appendOnMainChain {
-			bc.Length = bc.Length + 1
-			bc.LastBlock = b
-			bc.LastHash = b.Hash()
-		} else if blockHeight > bc.Length {
-			forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
-			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
-			bc.CoinDB.UndoCoins(blocks, undoBlocks)
+	if appendOnMainChain {
+		bc.Length = bc.Length + 1
+		bc.LastBlock = b
+		bc.LastHash = b.Hash()
+	} else if blockHeight > bc.Length {
+		forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
+		blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
+		bc.CoinDB.UndoCoins(blocks, undoBlocks)
 
-			for _, forkBlock := range forkBlocks {
-				bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
-			}
+		for _, forkBlock := range forkBlocks {
+			bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
 		}
 	}
 }
