@@ -87,19 +87,40 @@ func GenesisBlock(config *Config) *block.Block {
 // (5) Updates the BlockChain's fields.
 func (bc *BlockChain) HandleBlock(b *block.Block) {
 	//TODO
+	//// validate the block
+	//if !bc.CoinDB.ValidateBlock(b.Transactions) {
+	//	fmt.Errorf("[HandleBlock] block invalid ")
+	//	return
+	//}
+	//
+	//// store the block
+	//bc.CoinDB.StoreBlock(b.Transactions, true)
+	//
+	//// Stores the Block and resulting Undoblock to Disk.
+	//br := bc.ChainWriter.StoreBlock(b, bc.makeUndoBlock(bc.LastBlock.Transactions), bc.Length)
+	//
+	//// Stores the BlockRecord in the BlockInfoDatabase.
+	//bc.BlockInfoDB.StoreBlockRecord(b.Hash(), br)
+	//
+	//// if new block not on main chain, need to check for fork
+	//if !bc.appendsToActiveChain(b) {
+	//	// after adding current block, the chain is longer than the main chain, fork happens
+	//	if bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash).Height >= bc.Length {
+	//
+	//	}
+	//
+	//}
 
 	// test if appended to main block chain
 	//      validate and store block
 	appendOnMainChain := bc.appendsToActiveChain(b)
+
 	txs := b.Transactions
-	// if !bc.CoinDB.ValidateAndStoreBlock(txs) {
-	// 	return
-	// }
-	if !bc.CoinDB.ValidateBlock(txs){
+	if !bc.CoinDB.ValidateBlock(txs) {
 		return
 	}
 	bc.CoinDB.StoreBlock(txs, true)
-	
+
 	var blockHeight uint32
 	if appendOnMainChain {
 		blockHeight = bc.Length + 1
@@ -124,6 +145,7 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 		for _, forkBlock := range forkBlocks {
 			bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
 		}
+
 		bc.Length = blockHeight
 		bc.LastBlock = b
 		bc.LastHash = b.Hash()
