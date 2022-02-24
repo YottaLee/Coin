@@ -76,6 +76,15 @@ func (coinDB *CoinDatabase) validateTransaction(transaction *block.Transaction) 
 	return nil
 }
 
+// ValidateAndStoreBlock combines the coin database's ValidateBlock and StoreBlock calls.
+func (coinDB *CoinDatabase) ValidateAndStoreBlock(transactions []*block.Transaction) bool {
+	if !coinDB.ValidateBlock(transactions) {
+		return false
+	}
+	coinDB.StoreBlock(transactions, true)
+	return true
+}
+
 // UndoCoins handles reverting a Block. It:
 // (1) erases the Coins created by a Block and
 // (2) marks the Coins used to create those Transactions as unspent.
