@@ -90,40 +90,44 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 
 	// test if appended to main block chain
 	//      validate and store block
-	// appendOnMainChain := bc.appendsToActiveChain(b)
-	// txs := b.Transactions
+	appendOnMainChain := bc.appendsToActiveChain(b)
+	txs := b.Transactions
 	// if !bc.CoinDB.ValidateAndStoreBlock(txs) {
 	// 	return
 	// }
+	if !bc.CoinDB.ValidateBlock(txs){
+		return
+	}
+	bc.CoinDB.StoreBlock(txs, true)
+	
+	var blockHeight uint32
+	if appendOnMainChain {
+		blockHeight = bc.Length + 1
+	} else {
+		prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
+		blockHeight = prevBlock.Height + 1
+	}
 
-	// var blockHeight uint32
-	// if appendOnMainChain {
-	// 	blockHeight = bc.Length + 1
-	// } else {
-	// 	prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
-	// 	blockHeight = prevBlock.Height + 1
-	// }
+	undoBlock := bc.makeUndoBlock(b.Transactions)
+	blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
+	bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
 
-	// undoBlock := bc.makeUndoBlock(b.Transactions)
-	// blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
-	// bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
+	if appendOnMainChain {
+		bc.Length = bc.Length + 1
+		bc.LastBlock = b
+		bc.LastHash = b.Hash()
+	} else if blockHeight > bc.Length {
+		forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
+		blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
+		bc.CoinDB.UndoCoins(blocks, undoBlocks)
 
-	// if appendOnMainChain {
-	// 	bc.Length = bc.Length + 1
-	// 	bc.LastBlock = b
-	// 	bc.LastHash = b.Hash()
-	// } else if blockHeight > bc.Length {
-	// 	forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
-	// 	blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
-	// 	bc.CoinDB.UndoCoins(blocks, undoBlocks)
-
-	// 	for _, forkBlock := range forkBlocks {
-	// 		bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
-	// 	}
-	// 	bc.Length = blockHeight
-	// 	bc.LastBlock = b
-	// 	bc.LastHash = b.Hash()
-	// }
+		for _, forkBlock := range forkBlocks {
+			bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
+		}
+		bc.Length = blockHeight
+		bc.LastBlock = b
+		bc.LastHash = b.Hash()
+	}
 }
 
 // makeUndoBlock returns an UndoBlock given a slice of Transaction.
