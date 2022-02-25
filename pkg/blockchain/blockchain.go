@@ -88,12 +88,9 @@ func GenesisBlock(config *Config) *block.Block {
 func (bc *BlockChain) HandleBlock(b *block.Block) {
 	//TODO
 
-	// test if appended to main block chain
-	//      validate and store block
 	appendOnMainChain := bc.appendsToActiveChain(b)
-	var isValid bool
-	var txs []*block.Transaction
 	if appendOnMainChain {
+		var txs []*block.Transaction
 		for _, tx := range b.Transactions {
 			var txInputs []*block.TransactionInput
 			var txOutputs []*block.TransactionOutput
@@ -123,37 +120,40 @@ func (bc *BlockChain) HandleBlock(b *block.Block) {
 			}
 			txs = append(txs, trans)
 		}
-		isValid = bc.CoinDB.ValidateBlock(txs)
-		if isValid {
-			bc.CoinDB.StoreBlock(txs, true)
-		}
-	}
-
-	if isValid {
-		var blockHeight uint32
-		if appendOnMainChain {
-			blockHeight = bc.Length + 1
-		} else {
-			prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
-			blockHeight = prevBlock.Height + 1
-		}
-
-		undoBlock := bc.makeUndoBlock(b.Transactions) // TODO
-		blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
-		bc.BlockInfoDB.StoreBlockRecord(b.Hash(), blockRecord)
-
-		if appendOnMainChain {
-			bc.Length = bc.Length + 1
+		if bc.CoinDB.ValidateAndStoreBlock(txs) {
+			height := bc.Length + 1
+			undoBlock := bc.makeUndoBlock(b.Transactions) // TODO
+			blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, height)
+			bc.BlockInfoDB.StoreBlockRecord(b.Hash(), blockRecord)
+			// update fields
+			bc.Length = height
 			bc.LastBlock = b
 			bc.LastHash = b.Hash()
-		} else if blockHeight > bc.Length {
-			forkBlocks := bc.getForkedBlocks(bc.LastBlock.Hash())
-			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length)) // TODO
+		}
+	} else {
+		// append to forked chain
+		prevHash := b.Header.PreviousHash
+		prevBlockRecord := bc.BlockInfoDB.GetBlockRecord(prevHash)
+		if prevBlockRecord == nil {
+			return
+		}
+		height := prevBlockRecord.Height + 1
+		undoBlock := bc.makeUndoBlock(b.Transactions)
+		blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, height)
+		bc.BlockInfoDB.StoreBlockRecord(b.Hash(), blockRecord)
+		// switch to new branch if necessary
+		if height > bc.Length {
+			forkedBlocks := bc.getForkedBlocks(b.Hash())
+			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(len(forkedBlocks))
 			bc.CoinDB.UndoCoins(blocks, undoBlocks)
 
-			for _, forkBlock := range forkBlocks {
+			for _, forkBlock := range forkedBlocks {
 				bc.CoinDB.StoreBlock(forkBlock.Transactions, true)
 			}
+			// update fields
+			bc.Length = height
+			bc.LastBlock = b
+			bc.LastHash = b.Hash()
 		}
 	}
 }
