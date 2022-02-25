@@ -87,46 +87,75 @@ func GenesisBlock(config *Config) *block.Block {
 // (5) Updates the BlockChain's fields.
 func (bc *BlockChain) HandleBlock(b *block.Block) {
 	//TODO
-	//// validate the block
+
 	// test if appended to main block chain
 	//      validate and store block
-	// appendOnMainChain := bc.appendsToActiveChain(b)
+	appendOnMainChain := bc.appendsToActiveChain(b)
+	var isValid bool
+	var txs []*block.Transaction
+	if appendOnMainChain {
+		for _, tx := range b.Transactions {
+			var txInputs []*block.TransactionInput
+			var txOutputs []*block.TransactionOutput
 
-	// txs := b.Transactions
-	// if !bc.CoinDB.ValidateBlock(txs) {
-	// 	return
-	// }
-	// bc.CoinDB.StoreBlock(txs, true)
+			for _, txInput := range tx.Inputs {
+				input := &block.TransactionInput{
+					ReferenceTransactionHash: txInput.ReferenceTransactionHash,
+					OutputIndex:              txInput.OutputIndex,
+					UnlockingScript:          txInput.UnlockingScript,
+				}
+				txInputs = append(txInputs, input)
+			}
 
-	// var blockHeight uint32
-	// if appendOnMainChain {
-	// 	blockHeight = bc.Length + 1
-	// } else {
-	// 	prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
-	// 	blockHeight = prevBlock.Height + 1
-	// }
+			for _, txOutput := range tx.Outputs {
+				output := &block.TransactionOutput{
+					Amount:        txOutput.Amount,
+					LockingScript: txOutput.LockingScript,
+				}
+				txOutputs = append(txOutputs, output)
+			}
 
-	// undoBlock := bc.makeUndoBlock(b.Transactions)
-	// blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
-	// bc.BlockInfoDB.StoreBlockRecord(utils.Hash(b), blockRecord)
+			trans := &block.Transaction{
+				Version:  tx.Version,
+				Inputs:   txInputs,
+				Outputs:  txOutputs,
+				LockTime: tx.LockTime,
+			}
+			txs = append(txs, trans)
+		}
+		isValid = bc.CoinDB.ValidateBlock(txs)
+		if isValid {
+			bc.CoinDB.StoreBlock(txs, true)
+		}
+	}
 
-	// if appendOnMainChain {
-	// 	bc.Length = bc.Length + 1
-	// 	bc.LastBlock = b
-	// 	bc.LastHash = b.Hash()
-	// } else if blockHeight > bc.Length {
-	// 	forkBlocks := bc.getForkedBlocks(utils.Hash(bc.LastBlock))
-	// 	blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length))
-	// 	bc.CoinDB.UndoCoins(blocks, undoBlocks)
+	if isValid {
+		var blockHeight uint32
+		if appendOnMainChain {
+			blockHeight = bc.Length + 1
+		} else {
+			prevBlock := bc.BlockInfoDB.GetBlockRecord(b.Header.PreviousHash)
+			blockHeight = prevBlock.Height + 1
+		}
 
-	// 	for _, forkBlock := range forkBlocks {
-	// 		bc.CoinDB.StoreBlock(forkBlock.Transactions, true) // TODO true or false?
-	// 	}
+		undoBlock := bc.makeUndoBlock(b.Transactions) // TODO
+		blockRecord := bc.ChainWriter.StoreBlock(b, undoBlock, blockHeight)
+		bc.BlockInfoDB.StoreBlockRecord(b.Hash(), blockRecord)
 
-	// 	bc.Length = blockHeight
-	// 	bc.LastBlock = b
-	// 	bc.LastHash = b.Hash()
-	// }
+		if appendOnMainChain {
+			bc.Length = bc.Length + 1
+			bc.LastBlock = b
+			bc.LastHash = b.Hash()
+		} else if blockHeight > bc.Length {
+			forkBlocks := bc.getForkedBlocks(bc.LastBlock.Hash())
+			blocks, undoBlocks := bc.getBlocksAndUndoBlocks(int(bc.Length)) // TODO
+			bc.CoinDB.UndoCoins(blocks, undoBlocks)
+
+			for _, forkBlock := range forkBlocks {
+				bc.CoinDB.StoreBlock(forkBlock.Transactions, true)
+			}
+		}
+	}
 }
 
 // makeUndoBlock returns an UndoBlock given a slice of Transaction.
