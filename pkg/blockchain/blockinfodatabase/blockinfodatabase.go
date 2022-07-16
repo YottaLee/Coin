@@ -46,3 +46,7 @@ func (blockInfoDB *BlockInfoDatabase) GetBlockRecord(hash string) *BlockRecord {
 		return br
 	}
 }
+
+func (blockInfoDB *BlockInfoDatabase) Close() {
+	blockInfoDB.db.Close()
+}

@@ -10,6 +10,8 @@ import (
 func TestNewChain(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	if bc.Length != 1 {
 		t.Errorf("Expected chain length: %v\n Actual chain length: %v", 1, bc.Length)
 	}
@@ -30,6 +32,8 @@ func TestNewChain(t *testing.T) {
 func TestHandleAppendingBlock(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	lastBlock := bc.LastBlock
 	newBlock := MakeBlockFromPrev(lastBlock)
 	bc.HandleBlock(newBlock)
@@ -47,6 +51,8 @@ func TestHandleAppendingBlock(t *testing.T) {
 func TestHandleForkingBlock(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	currBlock := bc.LastBlock
 	currForkingBlock := bc.LastBlock
 
@@ -78,6 +84,8 @@ func TestHandleForkingBlock(t *testing.T) {
 func TestHandleInvalidBlock(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	lastBlock := bc.LastBlock
 	block1 := MakeBlockFromPrev(lastBlock)
 	block2 := MakeBlockFromPrev(block1)
@@ -96,6 +104,8 @@ func TestHandleInvalidBlock(t *testing.T) {
 func TestHandle50Blocks(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	currBlock := bc.LastBlock
 	for i := 0; i < 50; i++ {
 		newBlock := MakeBlockFromPrev(currBlock)
@@ -117,6 +127,8 @@ func TestHandle50Blocks(t *testing.T) {
 func TestHandle2Forks(t *testing.T) {
 	defer cleanUp()
 	bc := blockchain.New(blockchain.DefaultConfig())
+	defer bc.BlockInfoDB.Close()
+	defer bc.CoinDB.Close()
 	currBlock := bc.LastBlock
 	currForkingBlock := bc.LastBlock
 

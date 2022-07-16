@@ -91,31 +91,31 @@ func (coinDB *CoinDatabase) ValidateAndStoreBlock(transactions []*block.Transact
 func (coinDB *CoinDatabase) UndoCoins(blocks []*block.Block, undoBlocks []*chainwriter.UndoBlock) {
 	//TODO
 
-	// for i := range blocks {
-	// 	b := blocks[i]
-	// 	ub := undoBlocks[i]
-	// 	for _, tx := range b.Transactions {
-	// 		for _, txi := range tx.Inputs {
-	// 			cr := coinDB.getCoinRecordFromDB(txi.ReferenceTransactionHash)
-	// 			coinDB.removeCoinFromRecord(cr, txi.OutputIndex)
-	// 		}
-	// 	}
+	for i := range blocks {
+		b := blocks[i]
+		ub := undoBlocks[i]
+		for _, tx := range b.Transactions {
+			for _, txi := range tx.Inputs {
+				cr := coinDB.getCoinRecordFromDB(txi.ReferenceTransactionHash)
+				coinDB.removeCoinFromRecord(cr, txi.OutputIndex)
+			}
+		}
 
-	// 	for _, txih := range ub.TransactionInputHashes {
-	// 		for _, txi := range txih {
-	// 			cr := coinDB.getCoinRecordFromDB(string(txi))
-	// 			coinDB.addCoinsToRecord(cr, ub)
-	// 			//coinDB.putRecordInDB(string(txi), cr)
-	// 			record := EncodeCoinRecord(cr)
-	// 			//txHash := txi.ReferenceTransactionHash
-	// 			txHash := string(txi)
-	// 			msg, _ := proto.Marshal(record)
-	// 			if err2 := coinDB.db.Put([]byte(txHash), msg, nil); err2 != nil {
-	// 				utils.Debug.Printf("Unable to store block record for key {%v}", txHash)
-	// 			}
-	// 		}
-	// 	}
-	// }
+		for _, txih := range ub.TransactionInputHashes {
+			for _, txi := range txih {
+				cr := coinDB.getCoinRecordFromDB(string(txi))
+				coinDB.addCoinsToRecord(cr, ub)
+				//coinDB.putRecordInDB(string(txi), cr)
+				record := EncodeCoinRecord(cr)
+				//txHash := txi.ReferenceTransactionHash
+				txHash := string(txi)
+				msg, _ := proto.Marshal(record)
+				if err2 := coinDB.db.Put([]byte(txHash), msg, nil); err2 != nil {
+					utils.Debug.Printf("Unable to store block record for key {%v}", txHash)
+				}
+			}
+		}
+	}
 }
 
 // addCoinsToRecord adds coins to a CoinRecord given an UndoBlock and
@@ -362,4 +362,8 @@ func indexOf(s []uint32, e uint32) int {
 		}
 	}
 	return -1
+}
+
+func (coinDB *CoinDatabase) Close() {
+	coinDB.db.Close()
 }

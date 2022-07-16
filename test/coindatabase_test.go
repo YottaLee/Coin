@@ -12,6 +12,7 @@ func TestValidateValidBlock(t *testing.T) {
 	defer cleanUp()
 	genBlock := GenesisBlock()
 	coinDB := coindatabase.New(coindatabase.DefaultConfig())
+	defer coinDB.Close()
 	coinDB.StoreBlock(genBlock.Transactions, true)
 	block1 := MakeBlockFromPrev(genBlock)
 	if !coinDB.ValidateBlock(block1.Transactions) {
@@ -23,6 +24,7 @@ func TestValidateInvalidBlock(t *testing.T) {
 	defer cleanUp()
 	genBlock := GenesisBlock()
 	coinDB := coindatabase.New(coindatabase.DefaultConfig())
+	defer coinDB.Close()
 	coinDB.StoreBlock(genBlock.Transactions, true)
 	block1 := MakeBlockFromPrev(genBlock)
 	block2 := MakeBlockFromPrev(block1)
@@ -35,6 +37,7 @@ func TestUndoCoins(t *testing.T) {
 	defer cleanUp()
 	genBlock := GenesisBlock()
 	coinDB := coindatabase.New(coindatabase.DefaultConfig())
+	defer coinDB.Close()
 	coinDB.StoreBlock(genBlock.Transactions, true)
 	block1 := MakeBlockFromPrev(genBlock)
 	coinDB.StoreBlock(block1.Transactions, true)
@@ -76,6 +79,7 @@ func TestGetCoin(t *testing.T) {
 	defer cleanUp()
 	genBlock := GenesisBlock()
 	coinDB := coindatabase.New(coindatabase.DefaultConfig())
+	defer coinDB.Close()
 	coinDB.StoreBlock(genBlock.Transactions, true)
 	txHash := genBlock.Transactions[0].Hash()
 	cl := coindatabase.CoinLocator{

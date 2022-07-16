@@ -9,6 +9,7 @@ import (
 func TestStoreBlockRecord(t *testing.T) {
 	defer cleanUp()
 	blockinfo := blockinfodatabase.New(blockinfodatabase.DefaultConfig())
+	defer blockinfo.Close()
 	br := MockedBlockRecord()
 	blockinfo.StoreBlockRecord("hash", br)
 }
@@ -16,6 +17,7 @@ func TestStoreBlockRecord(t *testing.T) {
 func TestGetSameRecord(t *testing.T) {
 	defer cleanUp()
 	blockinfo := blockinfodatabase.New(blockinfodatabase.DefaultConfig())
+	defer blockinfo.Close()
 	br := MockedBlockRecord()
 	blockinfo.StoreBlockRecord("hash", br)
 	br2 := blockinfo.GetBlockRecord("hash")
@@ -27,6 +29,7 @@ func TestGetSameRecord(t *testing.T) {
 func TestGetDifferentRecords(t *testing.T) {
 	defer cleanUp()
 	blockinfo := blockinfodatabase.New(blockinfodatabase.DefaultConfig())
+	defer blockinfo.Close()
 	br := MockedBlockRecord()
 	br2 := MockedBlockRecord()
 	br2.UndoEndOffset = 20
