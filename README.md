@@ -1,12 +1,12 @@
-# Chain
+# Coin
 
 ## Introduction
 
-Chain is an example storage system (a blockchain) for a cryptocurrency. Chain is modeled after  [Bitcoin's storage system](https://en.bitcoin.it/wiki/Bitcoin_Core_0.11_(ch_2):_Data_Storage), though heavily simplified. The goal of this project is to give you and your partner a taste of the many working components of a blockchain.
+Coin is an example storage system (a blockchain) for a cryptocurrency. Coin is modeled after  [Bitcoin's storage system](https://en.bitcoin.it/wiki/Bitcoin_Core_0.11_(ch_2):_Data_Storage), though heavily simplified. The goal of this project is to have a taste of the many working components of a blockchain.
 
 ### Components
 
-Chain consists of several main components. Here's a quick overview:
+Coin consists of several main components. Here's a quick overview:
 
 1. **BlockChain**
     - The main type of this project, **BlockChain** is a blockchain that stores and validates **Blocks**. It manages and updates its main chain based on the Blocks it receives. Watch out for forks!
